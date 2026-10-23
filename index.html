@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snake — Jogo da Cobrinha</title>
+<style>
+:root{color-scheme:dark;--bg:#08111f;--panel:#101d30;--panel2:#15263c;--text:#eff7ff;--muted:#9eb1c8;--green:#67f5a5;--green2:#27c879;--pink:#ff6487;--line:#29405a}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:22px;background:radial-gradient(ellipse at top,#17314a 0%,var(--bg) 58%);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text)}
+.app{width:min(100%,620px)}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--green),#20b9a0);display:grid;place-items:center;color:#062319;font-size:25px;box-shadow:0 8px 24px #31d58b30}
+h1{font-size:clamp(1.4rem,4vw,2rem);margin:0;letter-spacing:-.04em}.subtitle{margin:3px 0 0;color:var(--muted);font-size:.86rem}
+.pill{border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--muted);font-size:.8rem;white-space:nowrap}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.stat{background:linear-gradient(145deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:15px;padding:12px 15px}
+.stat span{display:block;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em}.stat strong{display:block;font-size:1.5rem;line-height:1.25;margin-top:4px;font-variant-numeric:tabular-nums}
+.game-shell{position:relative;border:1px solid #35516c;border-radius:20px;overflow:hidden;background:#0a1725;box-shadow:0 22px 60px #0005}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1/1;touch-action:none}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;padding:22px;background:#07111ed9;backdrop-filter:blur(5px);text-align:center}
+.overlay[hidden]{display:none}.modal{max-width:340px}.eyebrow{color:var(--green);font-size:.75rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase}
+.modal h2{font-size:clamp(1.8rem,7vw,2.5rem);line-height:1.05;margin:10px 0}.modal p{color:#b8c9dc;line-height:1.55;margin:10px 0 20px}
+button{font:inherit;cursor:pointer;border:0;transition:transform .14s ease,filter .14s ease,background .14s ease}
+button:hover{filter:brightness(1.08);transform:translateY(-1px)}button:active{transform:translateY(1px)}button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.primary{background:var(--green);color:#062319;font-weight:800;padding:12px 22px;border-radius:12px;min-width:150px;box-shadow:0 8px 24px #67f5a526}
+.controls-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+.hints{color:var(--muted);font-size:.83rem;line-height:1.6}.hints kbd{display:inline-block;background:#17283d;border:1px solid #36506c;border-bottom-width:2px;padding:1px 6px;border-radius:5px;color:#eaf4ff;font-family:inherit;font-size:.78rem}
+.secondary{background:#17283d;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 13px;font-weight:650}
+.mobile-controls{display:none;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(2,48px);gap:7px;justify-content:center;margin:18px auto 0;touch-action:manipulation}
+.dir{background:#17283d;border:1px solid #36506c;color:#e9f5ff;border-radius:12px;font-size:1.3rem}.dir:active{background:#25405d}
+.dir.up{grid-column:2;grid-row:1}.dir.left{grid-column:1;grid-row:2}.dir.down{grid-column:2;grid-row:2}.dir.right{grid-column:3;grid-row:2}
+footer{color:#72869f;text-align:center;font-size:.75rem;margin-top:18px}
+@media(max-width:520px){body{padding:14px}.pill{display:none}.stat{padding:10px}.stat strong{font-size:1.25rem}.mobile-controls{display:grid}.controls-row{align-items:flex-start}.hints{max-width:68%}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="app">
+  <header>
+    <div class="brand"><div class="logo" aria-hidden="true">●</div><div><h1>Snake</h1><p class="subtitle">Clássico no ritmo certo.</p></div></div>
+    <div class="pill">Jogue no seu navegador · Offline</div>
+  </header>
+  <section class="stats" aria-label="Estatísticas da partida">
+    <div class="stat"><span>Pontuação</span><strong id="score">0</strong></div>
+    <div class="stat"><span>Recorde</span><strong id="best">0</strong></div>
+    <div class="stat"><span>Velocidade</span><strong id="speed">1×</strong></div>
+  </section>
+  <section class="game-shell" aria-label="Área do jogo">
+    <canvas id="game" width="480" height="480" aria-label="Tabuleiro do jogo da cobrinha"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <div class="eyebrow" id="eyebrow">Pronto para jogar?</div>
+        <h2 id="overlay-title">Vamos nessa.</h2>
+        <p id="overlay-copy">Pegue as maçãs, cresça e tente bater seu recorde. Não encoste nas paredes nem em você mesmo.</p>
+        <button class="primary" id="main-button">Iniciar partida</button>
+      </div>
+    </div>
+  </section>
+  <div class="controls-row">
+    <div class="hints">Mover: <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd> ou <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd><br>Pausar: <kbd>Espaço</kbd></div>
+    <button class="secondary" id="pause-button" disabled>Ⅱ Pausar</button>
+  </div>
+  <div class="mobile-controls" aria-label="Controles direcionais">
+    <button class="dir up" data-dir="up" aria-label="Mover para cima">↑</button>
+    <button class="dir left" data-dir="left" aria-label="Mover para esquerda">←</button>
+    <button class="dir down" data-dir="down" aria-label="Mover para baixo">↓</button>
+    <button class="dir right" data-dir="right" aria-label="Mover para direita">→</button>
+  </div>
+  <footer>Feito com HTML, CSS e JavaScript puro. Seu recorde fica salvo neste navegador.</footer>
+</main>
+<script>
+(() => {
+  "use strict";
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const scoreEl = document.getElementById("score");
+  const bestEl = document.getElementById("best");
+  const speedEl = document.getElementById("speed");
+  const overlay = document.getElementById("overlay");
+  const eyebrow = document.getElementById("eyebrow");
+  const overlayTitle = document.getElementById("overlay-title");
+  const overlayCopy = document.getElementById("overlay-copy");
+  const mainButton = document.getElementById("main-button");
+  const pauseButton = document.getElementById("pause-button");
+
+  const CELLS = 24;
+  const CELL = canvas.width / CELLS;
+  const BASE_INTERVAL = 145;
+  const MIN_INTERVAL = 68;
+  const DIRECTIONS = {
+    up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0}
+  };
+  let snake, food, direction, nextDirection, score, best, state, lastTime, accumulator, interval;
+
+  function loadBest() {
+    try { return Number(localStorage.getItem("snake-best") || 0) || 0; }
+    catch (_) { return 0; }
+  }
+  best = loadBest();
+
+  function resetGame() {
+    const mid = Math.floor(CELLS / 2);
+    snake = [{x:mid,y:mid},{x:mid-1,y:mid},{x:mid-2,y:mid}];
+    direction = "right";
+    nextDirection = "right";
+    score = 0;
+    interval = BASE_INTERVAL;
+    accumulator = 0;
+    lastTime = 0;
+    food = createFood();
+    updateStats();
+    draw();
+  }
+
+  function createFood() {
+    const free = [];
+    for (let y=0; y<CELLS; y++) for (let x=0; x<CELLS; x++) {
+      if (!snake.some(part => part.x===x && part.y===y)) free.push({x,y});
+    }
+    return free.length ? free[Math.floor(Math.random()*free.length)] : null;
+  }
+
+  function updateStats() {
+    scoreEl.textContent = score;
+    bestEl.textContent = best;
+    speedEl.textContent = (BASE_INTERVAL / interval).toFixed(1) + "×";
+  }
+
+  function showOverlay(type) {
+    overlay.hidden = false;
+    if (type === "start") {
+      eyebrow.textContent = "Pronto para jogar?";
+      overlayTitle.textContent = "Vamos nessa.";
+      overlayCopy.textContent = "Pegue as maçãs, cresça e tente bater seu recorde. Não encoste nas paredes nem em você mesmo.";
+      mainButton.textContent = "Iniciar partida";
+    } else if (type === "pause") {
+      eyebrow.textContent = "Pausa estratégica";
+      overlayTitle.textContent = "Respire. 🐍";
+      overlayCopy.textContent = `Você tem ${score} ponto${score===1?"":"s"}. Quando estiver pronto, continue de onde parou.`;
+      mainButton.textContent = "Continuar";
+    } else {
+      eyebrow.textContent = "Fim de jogo";
+      overlayTitle.textContent = "Boa tentativa!";
+      overlayCopy.textContent = `Pontuação final: ${score}. Recorde atual: ${best}. Bora tentar mais uma?`;
+      mainButton.textContent = "Jogar novamente";
+    }
+  }
+
+  function startGame() {
+    if (state === "paused") {
+      state = "running";
+      overlay.hidden = true;
+      pauseButton.textContent = "Ⅱ Pausar";
+      lastTime = 0;
+      return;
+    }
+    resetGame();
+    state = "running";
+    overlay.hidden = true;
+    pauseButton.disabled = false;
+    pauseButton.textContent = "Ⅱ Pausar";
+  }
+
+  function togglePause() {
+    if (state === "running") {
+      state = "paused";
+      showOverlay("pause");
+      pauseButton.textContent = "▶ Continuar";
+    } else if (state === "paused") {
+      startGame();
+    }
+  }
+
+  function endGame() {
+    state = "over";
+    pauseButton.disabled = true;
+    showOverlay("over");
+  }
+
+  function setDirection(name) {
+    if (state !== "running" || !DIRECTIONS[name]) return;
+    const current = DIRECTIONS[direction], wanted = DIRECTIONS[name];
+    // Bloqueia a inversão de 180 graus.
+    if (current.x + wanted.x === 0 && current.y + wanted.y === 0) return;
+    nextDirection = name;
+  }
+
+  function step() {
+    direction = nextDirection;
+    const vector = DIRECTIONS[direction];
+    const head = {x:snake[0].x + vector.x, y:snake[0].y + vector.y};
+    const eating = food && head.x===food.x && head.y===food.y;
+
+    if (head.x<0 || head.x>=CELLS || head.y<0 || head.y>=CELLS) {
+      endGame(); return;
+    }
+    // Se não comer, a cauda sai neste passo; entrar na posição dela é permitido.
+    const bodyToCheck = eating ? snake : snake.slice(0,-1);
+    if (bodyToCheck.some(part => part.x===head.x && part.y===head.y)) {
+      endGame(); return;
+    }
+
+    snake.unshift(head);
+    if (eating) {
+      score += 10;
+      if (score > best) {
+        best = score;
+        try { localStorage.setItem("snake-best", String(best)); } catch (_) {}
+      }
+      interval = Math.max(MIN_INTERVAL, BASE_INTERVAL - Math.floor(score/30)*7);
+      food = createFood();
+      updateStats();
+      if (!food) { endGame(); return; }
+    } else {
+      snake.pop();
+    }
+  }
+
+  function roundedRect(x,y,w,h,r) {
+    ctx.beginPath();
+    ctx.roundRect(x,y,w,h,r);
+    ctx.fill();
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = "#0a1725";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // Grade discreta para facilitar a leitura do tabuleiro.
+    ctx.strokeStyle = "rgba(128,166,199,.075)";
+    ctx.lineWidth = 1;
+    for (let i=1; i<CELLS; i++) {
+      const p = i*CELL;
+      ctx.beginPath(); ctx.moveTo(p,0); ctx.lineTo(p,canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,p); ctx.lineTo(canvas.width,p); ctx.stroke();
+    }
+
+    if (food) {
+      const cx = food.x*CELL + CELL/2, cy = food.y*CELL + CELL/2;
+      ctx.save();
+      ctx.shadowColor = "#ff6487"; ctx.shadowBlur = 15;
+      ctx.fillStyle = "#ff6487";
+      ctx.beginPath(); ctx.arc(cx,cy,CELL*.34,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#ffd0da";
+      ctx.beginPath(); ctx.arc(cx-CELL*.1,cy-CELL*.1,CELL*.08,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = "#8ee7a4"; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(cx+1,cy-CELL*.28); ctx.quadraticCurveTo(cx+CELL*.05,cy-CELL*.52,cx+CELL*.24,cy-CELL*.43); ctx.stroke();
+      ctx.restore();
+    }
+
+    snake.forEach((part,index) => {
+      const pad = index===0 ? 1.5 : 2.4;
+      const x=part.x*CELL+pad, y=part.y*CELL+pad, size=CELL-pad*2;
+      ctx.fillStyle = index===0 ? "#9affc5" : `hsl(${147-index*1.1}, 72%, ${Math.max(43,61-index*.25)}%)`;
+      ctx.shadowColor = index===0 ? "#67f5a5" : "transparent";
+      ctx.shadowBlur = index===0 ? 10 : 0;
+      roundedRect(x,y,size,size,CELL*.24);
+      ctx.shadowBlur = 0;
+      if (index===0) drawEyes(x,y,size);
+    });
+  }
+
+  function drawEyes(x,y,size) {
+    ctx.fillStyle = "#073322";
+    const r = size*.075;
+    let eyes;
+    if (direction==="right") eyes=[[x+size*.69,y+size*.32],[x+size*.69,y+size*.68]];
+    else if (direction==="left") eyes=[[x+size*.31,y+size*.32],[x+size*.31,y+size*.68]];
+    else if (direction==="up") eyes=[[x+size*.32,y+size*.31],[x+size*.68,y+size*.31]];
+    else eyes=[[x+size*.32,y+size*.69],[x+size*.68,y+size*.69]];
+    eyes.forEach(([ex,ey])=>{ctx.beginPath();ctx.arc(ex,ey,r,0,Math.PI*2);ctx.fill();});
+  }
+
+  function frame(timestamp) {
+    requestAnimationFrame(frame);
+    if (state !== "running") return;
+    if (!lastTime) lastTime = timestamp;
+    const delta = Math.min(timestamp-lastTime, 250);
+    lastTime = timestamp;
+    accumulator += delta;
+    while (accumulator >= interval && state === "running") {
+      step();
+      accumulator -= interval;
+    }
+    draw();
+  }
+
+  document.addEventListener("keydown", event => {
+    const key = event.key.toLowerCase();
+    const map = {arrowup:"up",w:"up",arrowdown:"down",s:"down",arrowleft:"left",a:"left",arrowright:"right",d:"right"};
+    if (map[key]) { event.preventDefault(); setDirection(map[key]); }
+    if (event.code === "Space") { event.preventDefault(); if (state==="running"||state==="paused") togglePause(); }
+    if (key==="enter" && (state==="ready"||state==="over")) startGame();
+  });
+  document.querySelectorAll("[data-dir]").forEach(button => {
+    button.addEventListener("pointerdown", event => { event.preventDefault(); setDirection(button.dataset.dir); });
+  });
+  mainButton.addEventListener("click", startGame);
+  pauseButton.addEventListener("click", togglePause);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && state==="running") togglePause();
+  });
+  window.addEventListener("blur", () => {
+    if (state==="running") togglePause();
+  });
+
+  state = "ready";
+  resetGame();
+  showOverlay("start");
+  pauseButton.disabled = true;
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
